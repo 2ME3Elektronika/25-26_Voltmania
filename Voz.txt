@@ -1,0 +1,97 @@
+Codigo prueba de voz 
+// ============================================
+// TEST SEN0539 - Mostrar voz en Serial
+// ============================================
+
+#include <SoftwareSerial.h>
+
+// Pines para SEN0539
+#define VOICE_RX 0  // Arduino RX (conectar a TX del SEN0539)
+#define VOICE_TX 1  // Arduino TX (conectar a RX del SEN0539)
+
+SoftwareSerial voiceSerial(VOICE_RX, VOICE_TX); // RX, TX
+
+String comandoRecibido = "";
+bool nuevoComando = false;
+
+void setup() {
+  // Iniciar comunicación con PC
+  Serial.begin(9600);
+  
+  // Iniciar comunicación con SEN0539
+  voiceSerial.begin(9600);
+  
+  Serial.println("====================================");
+  Serial.println("    TEST SEN0539 VOICE MODULE");
+  Serial.println("    Di algo al micrófono...");
+  Serial.println("====================================");
+  Serial.println();
+  
+  delay(1000);
+}
+
+void loop() {
+  // Leer datos del SEN0539
+  if (voiceSerial.available()) {
+    char c = voiceSerial.read();
+    
+    if (c == '#') { // '#' indica fin de comando
+      nuevoComando = true;
+    } 
+    else if (c != '\n' && c != '\r') {
+      comandoRecibido += c;
+    }
+  }
+  
+  // Mostrar comando cuando esté completo
+  if (nuevoComando) {
+    mostrarComando();
+    comandoRecibido = "";
+    nuevoComando = false;
+  }
+}
+
+void mostrarComando() {
+  Serial.println("====================================");
+  Serial.print("COMANDO RECIBIDO: \"");
+  Serial.print(comandoRecibido);
+  Serial.println("\"");
+  Serial.println("====================================");
+  Serial.println();
+  
+  // También mostrar interpretación
+  interpretarComando(comandoRecibido);
+}
+
+void interpretarComando(String cmd) {
+  cmd.toLowerCase(); // Convertir a minúsculas
+  
+  Serial.print("INTERPRETACIÓN: ");
+  
+  if (cmd.indexOf("hola") >= 0) {
+    Serial.println("Saludo detectado");
+  }
+  else if (cmd.indexOf("adiós") >= 0 || cmd.indexOf("adios") >= 0) {
+    Serial.println("Despedida detectada");
+  }
+  else if (cmd.indexOf("adelante") >= 0) {
+    Serial.println("→ Movimiento: ADELANTE");
+  }
+  else if (cmd.indexOf("atrás") >= 0 || cmd.indexOf("atras") >= 0) {
+    Serial.println("← Movimiento: ATRÁS");
+  }
+  else if (cmd.indexOf("izquierda") >= 0) {
+    Serial.println("↰ Movimiento: IZQUIERDA");
+  }
+  else if (cmd.indexOf("derecha") >= 0) {
+    Serial.println("↱ Movimiento: DERECHA");
+  }
+  else if (cmd.indexOf("para") >= 0 || cmd.indexOf("detente") >= 0) {
+    Serial.println("✋ Movimiento: PARAR");
+  }
+  else {
+    Serial.println("Comando no reconocido");
+  }
+  
+  Serial.println();
+}
