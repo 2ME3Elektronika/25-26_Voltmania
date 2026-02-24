@@ -1,0 +1,210 @@
+#include <SPI.h>
+#include <RF24.h>
+#include <Servo.h>
+
+/* ===== NRF24 ===== */
+#define CE_PIN 10
+#define CSN_PIN 9
+RF24 radio(CE_PIN, CSN_PIN);
+uint8_t address[][6] = {"1Node", "2Node"};
+
+/* ===== SERVO ===== */
+#define SERVO_PIN 3
+#define ANGULO_RECTO     90
+#define ANGULO_DERECHA   30
+#define ANGULO_IZQUIERDA 150
+Servo direccion;
+
+/* ===== TB6612FNG ===== */
+#define AIN1 A0
+#define AIN2 A1
+#define BIN1 A2
+#define BIN2 A3
+#define STBY 5
+
+/* ===== VARIABLES ===== */
+uint8_t comando = 6;            // COMANDO ACTIVO
+uint8_t comandoRecibido = 6;    // COMANDO RX
+bool modoVoz = false;
+unsigned long ultimaRecepcion = 0;
+
+/* ===== SETUP ===== */
+void setup() {
+  Serial.begin(115200);
+
+  direccion.attach(SERVO_PIN);
+  direccion.write(ANGULO_RECTO);
+
+  pinMode(AIN1, OUTPUT);
+  pinMode(AIN2, OUTPUT);
+  pinMode(BIN1, OUTPUT);
+  pinMode(BIN2, OUTPUT);
+  pinMode(STBY, OUTPUT);
+  analogWrite(STBY, 0);
+
+  radio.begin();
+  radio.setAutoAck(false);
+  radio.setDataRate(RF24_250KBPS);
+  radio.setPALevel(RF24_PA_LOW);
+  radio.setChannel(76);
+  radio.openReadingPipe(0, address[0]);
+  radio.startListening();
+
+  Serial.println("=== RECEPTOR LISTO ===");
+}
+
+/* ===== LOOP ===== */
+void loop() {
+
+  /* ===== LEER RADIO ===== */
+  if (radio.available()) {
+    radio.read(&comandoRecibido, sizeof(comandoRecibido));
+    Serial.print("RX: ");
+    Serial.println(comandoRecibido);
+
+    // TOGGLE MODO VOZ
+    if (comandoRecibido == 12) {
+      modoVoz = !modoVoz;
+      Serial.print("Modo voz: ");
+      Serial.println(modoVoz ? "ACTIVADO" : "DESACTIVADO");
+    } 
+    else {
+      // ===== MODO VOZ =====
+     if (modoVoz) {
+  if (comandoRecibido == 6  ||  
+      comandoRecibido == 7  ||   
+      comandoRecibido == 8  ||   
+      comandoRecibido == 9 ||   
+      comandoRecibido == 10) {
+    comando = comandoRecibido;
+  }
+}
+      // ===== MODO NORMAL =====
+      else {
+        comando = comandoRecibido;
+      }
+    }
+
+    ultimaRecepcion = millis();
+  }
+
+  /* ===== SEGURIDAD (opcional) ===== */
+
+
+  /* ===== EJECUTAR ===== */
+  if (modoVoz) {
+
+    switch (comando) {
+
+      case 10: // VOZ ADELANTE
+        avanzar();
+        analogWrite(STBY, 255);
+        direccion.write(ANGULO_RECTO);
+        break;
+
+      case 7: // VOZ ATRAS
+        retroceder();
+        analogWrite(STBY, 255);
+        direccion.write(ANGULO_RECTO);
+        break;
+
+      case 8: // VOZ DERECHA
+        avanzar();
+        analogWrite(STBY, 100);
+        direccion.write(ANGULO_DERECHA);
+        break;
+
+      case 9: // VOZ IZQUIERDA
+        avanzar();
+        analogWrite(STBY, 100);
+        direccion.write(ANGULO_IZQUIERDA);
+        break;
+
+      case 6: // PARAR VOZ
+        parar();
+        analogWrite(STBY, 0);
+        direccion.write(ANGULO_RECTO);
+        
+        break;
+    }
+
+  } else {
+
+    switch (comando) {
+
+      case 5:  // ADELANTE
+        avanzar();
+        analogWrite(STBY, 255);
+        direccion.write(ANGULO_RECTO);
+        break;
+
+      case 11: // ATRAS
+        retroceder();
+        analogWrite(STBY, 255);
+        direccion.write(ANGULO_RECTO);
+        break;
+
+      case 1: // ADELANTE + DERECHA
+        avanzar();
+        analogWrite(STBY, 255);
+        direccion.write(ANGULO_DERECHA);
+        break;
+
+      case 2: // ADELANTE + IZQUIERDA
+        avanzar();
+        analogWrite(STBY, 255);
+        direccion.write(ANGULO_IZQUIERDA);
+        break;
+
+      case 3: // ATRAS + DERECHA
+        retroceder();
+        analogWrite(STBY, 255);
+        direccion.write(ANGULO_DERECHA);
+        break;
+
+      case 4: // ATRAS + IZQUIERDA
+        retroceder();
+        analogWrite(STBY, 255);
+        direccion.write(ANGULO_IZQUIERDA);
+        break;
+
+      case 13: // SOLO IZQUIERDA
+        direccion.write(ANGULO_IZQUIERDA);
+        break;
+
+      case 14: // SOLO DERECHA
+        direccion.write(ANGULO_DERECHA);
+        break;
+
+      case 15: // PARAR
+      
+        parar();
+        analogWrite(STBY, 0);
+        direccion.write(ANGULO_RECTO);
+        
+        break;
+    }
+  }
+}
+
+/* ===== MOTORES ===== */
+void avanzar() {
+  digitalWrite(AIN1, HIGH);
+  digitalWrite(AIN2, LOW);
+  digitalWrite(BIN1, HIGH);
+  digitalWrite(BIN2, LOW);
+}
+
+void retroceder() {
+  digitalWrite(AIN1, LOW);
+  digitalWrite(AIN2, HIGH);
+  digitalWrite(BIN1, LOW);
+  digitalWrite(BIN2, HIGH);
+}
+
+void parar() {
+  digitalWrite(AIN1, LOW);
+  digitalWrite(AIN2, LOW);
+  digitalWrite(BIN1, LOW);
+  digitalWrite(BIN2, LOW);
+}
